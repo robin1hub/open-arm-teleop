@@ -51,4 +51,4 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: dataset
-          path: dataset/
+          path: dataflows/dataset/

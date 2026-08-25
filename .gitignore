@@ -13,6 +13,7 @@
 # limitations under the License.
 
 /dataset/
+**/dataset/
 /out/
 **/out/
 /.venv/
