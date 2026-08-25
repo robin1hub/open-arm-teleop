@@ -20,9 +20,10 @@ rate / acceleration / step / joint-limit guards
 OpenArm driver ──► CAN-FD ──► right and left arms
 ```
 
-`vive_absolute_mujoco_teleop.py` implements the supported simulation path.
-`vive_absolute_mujoco_real_teleop.py` adds real feedback, output gating, target
-resynchronization, and motion guards. The `run_vive_shared_*` launchers provide
+`src/openarm_teleop/vive_absolute_mujoco_teleop.py` implements the supported simulation path.
+`src/openarm_teleop/vive_absolute_mujoco_real_teleop.py` adds real feedback, output gating, target
+resynchronization, and motion guards. The `scripts/launch/run_vive_shared_*`
+launchers provide
 the currently validated shared-controller settings.
 
 ## Safety boundaries
@@ -41,21 +42,22 @@ controller, physical emergency stop, guarded workspace, or a risk assessment.
 
 ## Source layout
 
-- Top-level `vive_*` and `interactive_*` modules are the active controllers.
-- `safe_kinematics.py` contains shared IK and limit logic.
+- `src/openarm_teleop/` contains the active VIVE and interactive controllers.
+- `src/openarm_teleop/safe_kinematics.py` contains shared IK and limit logic.
 - `models/openarm_v1` contains the active MuJoCo model assets.
 - `nodes/` contains flattened source snapshots of dora/OpenArm components. They
   are intentionally included in the clone and installed by
   `bootstrap_portable.sh`; they are not Git submodules.
-- `dataflow*.yaml` contains current and legacy dora dataflow definitions.
+- `dataflows/` contains current and legacy dora dataflow definitions.
 - `tests/` contains offline behavioral and safety regressions.
 - `archives/` and explicitly labelled legacy files are historical references,
   not supported physical-control entry points.
 
 ## Configuration
 
-`openarm_safe_raw_zero.yaml` is the active physical-control configuration used
+`config/openarm_safe_raw_zero.yaml` is the active physical-control configuration used
 by the shared real launcher. Controller defaults are visible in
-`run_vive_shared_mujoco_real.sh`; changing them affects real motion and should
+`scripts/launch/run_vive_shared_mujoco_real.sh`; changing them affects real
+motion and should
 be reviewed together with the offline safety tests and a low-speed hardware
 validation plan.

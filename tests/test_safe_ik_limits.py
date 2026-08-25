@@ -5,15 +5,16 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
 import mujoco
 import numpy as np
 from openarm_control import ArmSetup, IKParams
 
-from interactive_mujoco_ee_drag import MODEL_SPECS
-from safe_kinematics import SafeKinematics
+from openarm_teleop.interactive_mujoco_ee_drag import MODEL_SPECS
+from openarm_teleop.safe_kinematics import SafeKinematics
 
 
 def joint_ranges(setup: ArmSetup, side: str) -> np.ndarray:

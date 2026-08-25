@@ -6,12 +6,13 @@ import sys
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
 import numpy as np
 
-from vive_mujoco_real_teleop import BimanualHardwareBridge
+from openarm_teleop.vive_mujoco_real_teleop import BimanualHardwareBridge
 
 
 class SoftJointLimitTests(unittest.TestCase):

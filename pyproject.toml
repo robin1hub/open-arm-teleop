@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openarm-teleop"
+version = "0.1.0"
+description = "Experimental OpenArm 1.0 VIVE and MuJoCo teleoperation stack"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {file = "LICENSE"}
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

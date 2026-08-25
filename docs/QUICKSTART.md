@@ -44,7 +44,7 @@ Run all offline tests:
 Then verify the simulation action path:
 
 ```bash
-./run_action_test_mujoco.sh
+./scripts/launch/run_action_test_mujoco.sh
 ```
 
 The two simulated arms should move smoothly from home to mirrored targets and
@@ -56,7 +56,7 @@ Start SteamVR first, keep both controllers awake and visible to the base
 stations, then run:
 
 ```bash
-./run_vive_shared_mujoco_sim.sh
+./scripts/launch/run_vive_shared_mujoco_sim.sh
 ```
 
 Press `K` to calibrate and use the controller trigger (or `C`) to capture a
@@ -88,7 +88,7 @@ alone.
 Start the guarded physical controller:
 
 ```bash
-./run_vive_shared_mujoco_real.sh --confirm-hardware
+./scripts/launch/run_vive_shared_mujoco_real.sh --confirm-hardware
 ```
 
 Physical output remains disabled at startup. Calibrate (`K`), capture a

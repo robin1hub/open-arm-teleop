@@ -27,7 +27,7 @@ cd open-arm-teleop
   tests/test_vive_real_soft_limits.py \
   tests/test_safe_ik_limits.py \
   tests/test_ee_to_joint_mujoco.py
-./run_action_test_mujoco.sh
+./scripts/launch/run_action_test_mujoco.sh
 ```
 
 此阶段不需要 VIVE、CAN 或实体机械臂。仿真中的左右臂应平滑地从 home 位
@@ -39,7 +39,7 @@ cd open-arm-teleop
 绿色，然后执行：
 
 ```bash
-./run_vive_shared_mujoco_sim.sh
+./scripts/launch/run_vive_shared_mujoco_sim.sh
 ```
 
 - `K`：校准 VIVE 到机械臂的映射
@@ -68,7 +68,7 @@ openarm-can-cli -i can1 discover
 检查全部通过后启动：
 
 ```bash
-./run_vive_shared_mujoco_real.sh --confirm-hardware
+./scripts/launch/run_vive_shared_mujoco_real.sh --confirm-hardware
 ```
 
 程序启动时实体输出仍为关闭状态。先按 `K` 校准，再按 `C` 或扳机采集参考，

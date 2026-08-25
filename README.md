@@ -58,14 +58,14 @@ cd open-arm-teleop
 Run a simulation-only smoke test that requires neither VR nor CAN:
 
 ```bash
-./run_action_test_mujoco.sh
+./scripts/launch/run_action_test_mujoco.sh
 ```
 
 For VIVE simulation, install Steam and SteamVR, pair the headset/controllers,
 start SteamVR, and run:
 
 ```bash
-./run_vive_shared_mujoco_sim.sh
+./scripts/launch/run_vive_shared_mujoco_sim.sh
 ```
 
 See the [complete quick-start guide](docs/QUICKSTART.md) for calibration,
@@ -90,7 +90,7 @@ openarm-can-cli -i can1 discover
 Only after the checks pass and SteamVR is healthy:
 
 ```bash
-./run_vive_shared_mujoco_real.sh --confirm-hardware
+./scripts/launch/run_vive_shared_mujoco_real.sh --confirm-hardware
 ```
 
 The launcher starts with motor output disabled. Calibrate first, then enable
@@ -113,13 +113,16 @@ as a reason to bypass a guard.
 ```text
 .
 ├── docs/                     Public setup, architecture, and safety guides
+├── config/                   Robot and physical-limit configuration
+├── dataflows/                dora-rs flow and metadata definitions
 ├── models/openarm_v1/        OpenArm 1.0 MuJoCo assets
 ├── nodes/                    Vendored dora/OpenArm node sources
-├── scripts/                  Maintainer and diagnostic utilities
+├── scripts/launch/           User-facing simulation and robot launchers
+├── scripts/diagnostics/      Read-only hardware verification tools
+├── scripts/hardware_tools/   Guarded hardware maintenance utilities
+├── src/openarm_teleop/       Teleoperation and kinematics implementation
 ├── tests/                    Offline regression tests
-├── bootstrap_portable.sh     Reproducible Python environment setup
-├── run_*                     Supported and legacy launch entry points
-└── vive_*_teleop.py          VIVE simulation and physical controllers
+└── bootstrap_portable.sh     Reproducible Python environment setup
 ```
 
 The node directories are source snapshots rather than Git submodules so a
@@ -133,13 +136,12 @@ in [NOTICE](NOTICE).
 - [Architecture](docs/ARCHITECTURE.md)
 - [Hardware safety](docs/HARDWARE_SAFETY.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
-- [Interactive control reference](INTERACTIVE_CONTROL.md)
-- [CAN and arm debugging reference](CAN_AND_ARM_DEBUGGING.md)
+- [Interactive control reference](docs/legacy/INTERACTIVE_CONTROL.md)
+- [CAN and arm debugging reference](docs/legacy/CAN_AND_ARM_DEBUGGING.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 
-Files such as `AGENT_HANDOFF_DEPLOYMENT.md` and
-`YANGHAO_OPENARM_CONTROL.md` preserve deployment history. They may contain
+Files under `docs/legacy/` preserve deployment history. They may contain
 machine-specific or older procedures; use the documents above as the public
 entry points.
 

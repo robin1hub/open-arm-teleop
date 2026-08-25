@@ -14,11 +14,13 @@
 
 /dataset/
 /out/
+**/out/
 /.venv/
 /MUJOCO_LOG.TXT
 /MJDATA.TXT
 /vr_mujoco_data/
 /vr_data_no_camera/
+/logs/
 **/*.egg-info/
 **/__pycache__/
 

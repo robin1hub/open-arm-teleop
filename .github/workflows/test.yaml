@@ -37,10 +37,10 @@ jobs:
           pip install dora-rs-cli
       - name: Build
         run: |
-          dora build dataflow_dummy.yaml
+          dora build dataflows/dataflow_dummy.yaml
       - name: Run
         run: |
-          dora run dataflow_dummy.yaml &
+          dora run dataflows/dataflow_dummy.yaml &
           sleep 5
           curl -X POST http://127.0.0.1:8000/start
           sleep 1

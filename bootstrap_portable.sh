@@ -22,6 +22,7 @@ fi
 
 .venv/bin/python -m pip install --upgrade pip setuptools wheel
 .venv/bin/python -m pip install -r requirements-teleop-lock.txt
+.venv/bin/python -m pip install --no-deps -e .
 
 # Install the local, packaged nodes used by the current scripts. These are
 # editable so later fixes in this directory are immediately active.
@@ -34,14 +35,9 @@ for node in \
   .venv/bin/python -m pip install -e "$node"
 done
 
-.venv/bin/python -m unittest -q tests/test_vive_real_soft_limits.py
-.venv/bin/python -m py_compile \
-  interactive_mujoco_ee_drag.py \
-  safe_kinematics.py \
-  vive_mujoco_teleop.py \
-  vive_mujoco_real_teleop.py \
-  vive_absolute_mujoco_teleop.py \
-  vive_absolute_mujoco_real_teleop.py
+PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}" \
+  .venv/bin/python -m unittest -q tests/test_vive_real_soft_limits.py
+.venv/bin/python -m compileall -q src/openarm_teleop scripts
 
 echo
 echo "Portable environment created successfully."

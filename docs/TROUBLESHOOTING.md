@@ -41,7 +41,7 @@ verify the actual arm identity before physical control.
 
 Retry one transient query. If the result remains incomplete, stop. Check power,
 termination, wiring, adapter assignment, CAN-FD bitrate, and error counters with
-output disabled. See [CAN and arm debugging](../CAN_AND_ARM_DEBUGGING.md).
+output disabled. See [CAN and arm debugging](legacy/CAN_AND_ARM_DEBUGGING.md).
 
 ## Motion is slow, jerky, or delayed
 
