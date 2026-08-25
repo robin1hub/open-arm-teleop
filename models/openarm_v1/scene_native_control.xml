@@ -1,0 +1,14 @@
+<mujoco model="OpenArm V1 native interactive control">
+  <include file="scene.xml"/>
+
+  <worldbody>
+    <body name="right_ee_target" mocap="true" pos="0 -0.15 0.08">
+      <geom name="right_ee_target_geom" type="sphere" size="0.025"
+            rgba="0.1 0.9 0.25 0.75" contype="0" conaffinity="0"/>
+    </body>
+    <body name="left_ee_target" mocap="true" pos="0 0.16 0.08">
+      <geom name="left_ee_target_geom" type="sphere" size="0.018"
+            rgba="0.4 0.7 1.0 0.45" contype="0" conaffinity="0"/>
+    </body>
+  </worldbody>
+</mujoco>

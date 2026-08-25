@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+</head>
+
+<body>
+    <div class="mermaid">
+        flowchart TB
+  follower-left["**follower-left**"]
+  follower-right["**follower-right**"]
+  ik["**ik**"]
+  mujoco-viewer["**mujoco-viewer**"]
+  quittable-tick-leader["**quittable-tick-leader**"]
+  recorder[/"**recorder**"\]
+  udp-receiver["**udp-receiver**"]
+  ui["**ui**"]
+subgraph ___dora___ [dora]
+  subgraph ___timer_timer___ [timer]
+    dora/timer/millis/2[\millis/2/]
+    dora/timer/millis/20[\millis/20/]
+    dora/timer/secs/1[\secs/1/]
+  end
+end
+  ui -- arm_command as command --> follower-left
+  ik -- position_left as move_position --> follower-left
+  dora/timer/millis/20 -- request_state --> follower-left
+  ui -- arm_command as command --> follower-right
+  ik -- position_right as move_position --> follower-right
+  dora/timer/millis/20 -- request_state --> follower-right
+  follower-left -- state as state_left --> ik
+  follower-right -- state as state_right --> ik
+  udp-receiver -- pose_left as target_left --> ik
+  udp-receiver -- pose_right as target_right --> ik
+  quittable-tick-leader -- tick --> ik
+  udp-receiver -- trigger_left --> ik
+  udp-receiver -- trigger_right --> ik
+  udp-receiver -- joystick_y --> mujoco-viewer
+  udp-receiver -- pose_left --> mujoco-viewer
+  udp-receiver -- pose_right --> mujoco-viewer
+  follower-left -- state as position_left --> mujoco-viewer
+  follower-right -- state as position_right --> mujoco-viewer
+  ui -- command --> quittable-tick-leader
+  dora/timer/millis/2 -- tick --> quittable-tick-leader
+  ik -- position_left as arm_left_action --> recorder
+  follower-left -- state as arm_left_observation --> recorder
+  ik -- position_right as arm_right_action --> recorder
+  follower-right -- state as arm_right_observation --> recorder
+  ui -- command --> recorder
+  quittable-tick-leader -- tick --> udp-receiver
+  follower-left -- status as arm_status_left --> ui
+  follower-right -- status as arm_status_right --> ui
+  udp-receiver -- button_a --> ui
+  udp-receiver -- button_b --> ui
+  dora/timer/secs/1 -- tick --> ui
+
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', theme: 'base' });
+    </script>
+</body>
+
+</html>

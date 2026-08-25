@@ -1,0 +1,16 @@
+# Local OpenArm 2.0 configuration for a bimanual robot without cameras or a cell lifter.
+location: Lab
+operator: Operator
+
+tasks:
+  - prompt: VR teleoperation.
+    description: Bimanual OpenArm teleoperation using Meta Quest 3.
+
+equipment:
+  id: OpenArmBimanual
+  version: "2.0"
+  embodiments:
+    arms:
+      id: OpenArm
+      version: "2.0"
+
