@@ -1,0 +1,25 @@
+OpenArm 1.0 VIVE Teleoperation
+Copyright 2026 the project contributors
+
+This repository is an independent development snapshot and is not an official
+release of OpenArm, Enactic, Valve, HTC, or Google.
+
+It contains or derives from OpenArm and dora node source code published by
+Enactic, Inc. and other upstream contributors, including source snapshots under
+the nodes/ directory. Upstream projects include:
+
+  https://github.com/enactic/openarm
+  https://github.com/enactic/dora-openarm
+  https://github.com/enactic/dora-openarm-kinematics
+  https://github.com/enactic/dora-openarm-mujoco
+  https://github.com/enactic/dora-openarm-vr
+  https://github.com/enactic/dora-openarm-quitter
+  https://github.com/enactic/dora-openarm-data-collection-ui
+  https://github.com/enactic/dora-openarm-dataset-recorder
+
+The repository-level LICENSE is Apache License 2.0. Individual components and
+assets may include their own copyright or license notices; those notices remain
+in effect and must be preserved in redistributed copies.
+
+OpenArm, dora-rs, VIVE, SteamVR, and MuJoCo are names or trademarks of their
+respective owners. Their appearance here does not imply endorsement.

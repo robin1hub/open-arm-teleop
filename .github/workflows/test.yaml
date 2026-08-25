@@ -26,11 +26,12 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-        with:
-          submodules: recursive
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.x'
+          python-version: '3.12'
+      - name: Compile Python sources
+        run: |
+          python -m compileall -q -x '/(archives|\.venv)/' .
       - name: Install dora-rs-cli
         run: |
           pip install dora-rs-cli
