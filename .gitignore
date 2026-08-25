@@ -60,17 +60,5 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# One-off physical-arm diagnostics kept locally. The reusable, hardware-free
-# regression tests remain tracked explicitly.
-/test_driver_current_hold.py
-/test_openarm_bimanual_j4_lift_40deg.py
-/test_openarm_driver_fullarm_action.py
-/test_openarm_driver_j4_lift_15deg.py
-/test_openarm_driver_left_j4_lift_20deg.py
-/test_openarm_driver_wrist_5deg.py
-/test_real_bimanual_ee_up_5cm.py
-/test_real_right_chest_grasp_pose.py
-/test_real_right_ee_forward_2cm.py
-/test_right_arm_all_joints.py
-/test_right_j7_small_step.py
-/test_right_whole_arm_small_pose.py
+# One-off physical-arm diagnostics are kept locally under scripts/.
+/scripts/hardware_diagnostics/

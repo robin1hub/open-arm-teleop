@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """Offline regression tests for physical VIVE soft joint limits."""
 
+import pathlib
+import sys
 import unittest
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import numpy as np
 

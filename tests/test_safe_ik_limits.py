@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Stress strict IK with unreachable targets and verify hard joint limits."""
 
+import pathlib
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import mujoco
 import numpy as np
 from openarm_control import ArmSetup, IKParams

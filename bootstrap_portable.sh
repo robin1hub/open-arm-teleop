@@ -34,7 +34,7 @@ for node in \
   .venv/bin/python -m pip install -e "$node"
 done
 
-.venv/bin/python -m unittest -q test_vive_real_soft_limits.py
+.venv/bin/python -m unittest -q tests/test_vive_real_soft_limits.py
 .venv/bin/python -m py_compile \
   interactive_mujoco_ee_drag.py \
   safe_kinematics.py \
@@ -46,4 +46,3 @@ done
 echo
 echo "Portable environment created successfully."
 echo "Read AGENT_HANDOFF_DEPLOYMENT.md before connecting or enabling hardware."
-

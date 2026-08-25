@@ -150,8 +150,8 @@ The exact `openarm_control` Git commit used here is
 First validate imports and IK:
 
 ```bash
-.venv/bin/python -m unittest -v test_vive_real_soft_limits.py
-.venv/bin/python test_ee_to_joint_mujoco.py
+.venv/bin/python -m unittest -v tests/test_vive_real_soft_limits.py
+.venv/bin/python tests/test_ee_to_joint_mujoco.py
 ```
 
 Then install/start SteamVR and verify the headset and both controllers are
@@ -272,7 +272,7 @@ starve wrist orientation. If position projection succeeds without orientation,
 the same frame attempts one additional orientation-only, collision-checked
 step.
 
-These changes compile and `test_vive_real_soft_limits.py` currently has six
+These changes compile and `tests/test_vive_real_soft_limits.py` currently has six
 passing tests covering soft limits, gripper limiting, acceleration ramping,
 endpoint non-overshoot and reversal braking.
 
