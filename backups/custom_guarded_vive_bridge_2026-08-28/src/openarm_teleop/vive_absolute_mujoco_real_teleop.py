@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Official-driver absolute VIVE teleoperation for physical OpenArm 1.0."""
+"""Guarded absolute-body-frame VIVE teleoperation for physical OpenArm 1.0."""
 
 from __future__ import annotations
 
@@ -11,11 +11,14 @@ import mujoco
 import numpy as np
 
 from .interactive_mujoco_ee_drag import (
-    physical_gripper_direction,
     physical_to_model_position,
 )
 from .vive_absolute_mujoco_teleop import ViveAbsoluteSimulationApp
-from .vive_mujoco_real_teleop import BimanualHardwareBridge
+from .vive_mujoco_real_teleop import (
+    BimanualHardwareBridge,
+    add_hardware_motion_arguments,
+    resolve_hardware_motion_arguments,
+)
 
 
 class ViveAbsolutePhysicalApp(ViveAbsoluteSimulationApp):
@@ -27,16 +30,8 @@ class ViveAbsolutePhysicalApp(ViveAbsoluteSimulationApp):
         tracking_loss_timeout: float,
         **kwargs: object,
     ) -> None:
-        super().__init__(collision_check_enabled=False, **kwargs)
+        super().__init__(**kwargs)
         self.hardware = bridge
-        # Physical motion is limited by openarm-driver itself. Do not add the
-        # previous Cartesian step, IK branch-jump, or home-step filters here.
-        self.target_position_step = np.inf
-        self.target_orientation_step = np.pi
-        self.max_ik_joint_step = np.inf
-        self.kin.set_max_joint_change_per_solve(np.inf)
-        self.home_joint_step = np.inf
-        self.gripper_step = 0.044
         self.tracking_loss_timeout = float(tracking_loss_timeout)
         self.tracking_lost_since: dict[str, float | None] = {
             "left": None,
@@ -47,7 +42,7 @@ class ViveAbsolutePhysicalApp(ViveAbsoluteSimulationApp):
 
     @staticmethod
     def _physical_gripper(side: str, model_position: float) -> float:
-        direction = physical_gripper_direction(side)
+        direction = -1.0 if side == "right" else 1.0
         return direction * model_position * (np.pi / 3.0) / 0.044
 
     def _invalidate_calibration(self) -> None:
@@ -84,7 +79,7 @@ class ViveAbsolutePhysicalApp(ViveAbsoluteSimulationApp):
         print("[hardware] simulation synchronized; motors remain disabled", flush=True)
 
     def _sync_model_to_commanded_posture(self) -> None:
-        """Render the exact posture accepted by openarm-driver."""
+        """Render the exact rate-limited posture most recently sent."""
 
         for side, driver in self.hardware.drivers.items():
             model_position = physical_to_model_position(
@@ -93,8 +88,9 @@ class ViveAbsolutePhysicalApp(ViveAbsoluteSimulationApp):
             self.resolver.set_qpos(self.data.qpos, model_position, side)
         mujoco.mj_forward(self.model, self.data)
         self._sync_from_model()
-        # Start the next IK solve from the posture accepted by the driver,
-        # rather than leaving the simulated seed ahead of physical output.
+        # The next IK step must start from the same posture that is rendered
+        # and sent to hardware. Leaving these targets ahead of qpos makes the
+        # IK discontinuity guard reject every later frame as a large jump.
         for side in ("left", "right"):
             pose = self._fk(side)
             self.vive_ik_targets[side] = pose.copy()
@@ -156,12 +152,45 @@ class ViveAbsolutePhysicalApp(ViveAbsoluteSimulationApp):
         super().update_vive_target()
         if not self.hardware_home_active:
             return
-        # Physical HOME owns both arms until the official-driver-limited commands
+        # Physical HOME owns both arms until the rate-limited CAN commands
         # have actually converged, even if the faster simulation is already
         # at its home pose.
         for side in ("left", "right"):
             self.grip_active[side] = False
             self.require_grip_release[side] = True
+
+    def _attempt_candidate(
+        self,
+        side: str,
+        desired: np.ndarray,
+        position_factor: float,
+        orientation_factor: float,
+    ) -> tuple[bool, str]:
+        """Reject IK candidates before they enter the physical soft-limit band."""
+
+        qpos_before = self.data.qpos.copy()
+        ik_before = self.vive_ik_targets[side].copy()
+        safe_before = self.safe_targets[side].copy()
+        accepted, reason = super()._attempt_candidate(
+            side, desired, position_factor, orientation_factor
+        )
+        if not accepted:
+            return accepted, reason
+
+        right, left = self._drivers()
+        candidate = right if side == "right" else left
+        limits = self.hardware.command_limits[side]
+        outside = (candidate[:7] < limits[:7, 0]) | (
+            candidate[:7] > limits[:7, 1]
+        )
+        if not np.any(outside):
+            return True, ""
+
+        self._restore_candidate(qpos_before, ik_before, side)
+        self.safe_targets[side] = safe_before
+        self._set_mocap(side, safe_before)
+        joints = (np.flatnonzero(outside) + 1).tolist()
+        return False, f"physical soft joint limit: J{joints}"
 
     def after_solve(self) -> None:
         if not self.hardware.armed:
@@ -221,7 +250,18 @@ class ViveAbsolutePhysicalApp(ViveAbsoluteSimulationApp):
                 desired[7] = self._physical_gripper(
                     side, self.gripper_position[side]
                 )
-                measured = self.hardware.send_if_due(side, desired)
+                measured = self.hardware.send_if_due(
+                    side,
+                    desired,
+                    validator=lambda next_command, command_side=side: (
+                        self._validate_physical_path(
+                            command_side,
+                            next_command,
+                            physical=physical,
+                            verbose=False,
+                        )
+                    ),
+                )
                 if measured is not None:
                     physical[side] = self.hardware.drivers[
                         side
@@ -264,7 +304,7 @@ class ViveAbsolutePhysicalApp(ViveAbsoluteSimulationApp):
         print(
             "REAL ABSOLUTE VIVE MODE: P=resync+disable, K=start calibration, "
             "TRIGGER/C=capture pose, "
-            "E=enable/disable, H=official-driver-limited home. "
+            "E=enable/disable, H=rate-limited safe home. "
             "Keep the emergency stop accessible.",
             flush=True,
         )
@@ -283,11 +323,15 @@ def main() -> int:
         default=pathlib.Path(__file__).resolve().parents[2]
         / "config/openarm_safe_raw_zero.yaml",
     )
-    parser.add_argument("--command-hz", type=float, default=60.0)
+    add_hardware_motion_arguments(parser)
+    parser.add_argument("--joint-limit-margin", type=float, default=0.05)
     parser.add_argument("--tracking-loss-timeout", type=float, default=0.30)
     parser.add_argument("--scale-forward", type=float, default=1.0)
     parser.add_argument("--scale-left", type=float, default=1.0)
     parser.add_argument("--scale-up", type=float, default=1.0)
+    parser.add_argument("--position-step-mm", type=float, default=4.0)
+    parser.add_argument("--orientation-step-deg", type=float, default=0.75)
+    parser.add_argument("--gripper-step-mm", type=float, default=0.4)
     parser.add_argument("--shoulder-width", type=float, default=0.38)
     parser.add_argument("--shoulder-drop", type=float, default=0.27)
     parser.add_argument(
@@ -296,8 +340,11 @@ def main() -> int:
     args = parser.parse_args()
     if not args.confirm_hardware:
         parser.error("physical mode requires --confirm-hardware")
-    if not 5.0 <= args.command_hz <= 100.0:
-        parser.error("--command-hz must be between 5 and 100")
+    velocity_limits, gripper_velocity_limit = resolve_hardware_motion_arguments(
+        args, parser
+    )
+    if not 0.02 <= args.joint_limit_margin <= 0.15:
+        parser.error("--joint-limit-margin must be between 0.02 and 0.15 rad")
     if not 0.10 <= args.tracking_loss_timeout <= 0.75:
         parser.error("--tracking-loss-timeout must be between 0.10 and 0.75 s")
     scales = np.array(
@@ -313,6 +360,12 @@ def main() -> int:
     bridge = BimanualHardwareBridge(
         config_path=args.config,
         command_hz=args.command_hz,
+        joint_velocity_limits=velocity_limits,
+        max_tracking_error=args.max_tracking_error,
+        joint_limit_margin=args.joint_limit_margin,
+        max_command_step=args.max_command_step,
+        gripper_velocity_limit=gripper_velocity_limit,
+        max_joint_acceleration=args.max_joint_acceleration,
     )
     ViveAbsolutePhysicalApp(
         bridge=bridge,
@@ -325,9 +378,9 @@ def main() -> int:
         scale=1.0,
         max_offset=0.5,
         elbow_bend_deg=45.0,
-        position_step_mm=np.inf,
-        orientation_step_deg=180.0,
-        gripper_step_mm=44.0,
+        position_step_mm=args.position_step_mm,
+        orientation_step_deg=args.orientation_step_deg,
+        gripper_step_mm=args.gripper_step_mm,
     ).run()
     return 0
 

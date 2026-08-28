@@ -9,30 +9,25 @@ VIVE controllers
 VIVE mapping and calibration
       │ desired end-effector poses
       ▼
-MuJoCo model + IK
-      │ joint targets
+MuJoCo model + constrained IK
+      │ guarded joint targets
       ├──────────────► MuJoCo visualization
       │
       ▼
-explicit enable gate + 60 Hz dispatch
-      │
+rate / acceleration / step / joint-limit guards
+      │ explicit enable gate
       ▼
-OpenArm driver 0.3 official position / delta / velocity checks
-      │
-      ▼
-CAN-FD ──► right and left arms
+OpenArm driver ──► CAN-FD ──► right and left arms
 ```
 
 `src/openarm_teleop/vive_absolute_mujoco_teleop.py` implements the supported simulation path.
 `src/openarm_teleop/vive_absolute_mujoco_real_teleop.py` adds real feedback, output gating, target
-resynchronization, and physical output dispatch. The `scripts/launch/run_vive_shared_*`
+resynchronization, and motion guards. The `scripts/launch/run_vive_shared_*`
 launchers provide
-the current shared-controller settings. The real launcher requests a
-phase-locked 60 Hz command cadence and passes IK targets directly to
-`openarm-driver==0.3.0`. The driver applies the official J1-J8 velocity profile
-`[2, 2, 3.3, 3.3, 6.3, 6.3, 6.3, 20] rad/s`. The former local Cartesian step,
-acceleration, 0.03-rad delta, collision prediction, soft-margin, and
-tracking-error filters are not present on this path.
+the current guarded shared-controller settings. The real launcher requests a
+phase-locked 60 Hz command cadence while retaining an approximately 0.50 rad/s
+J1-J7 ceiling. These settings have offline regression coverage; confirm actual
+cadence and motion with a small-amplitude physical validation before normal use.
 
 ## Safety boundaries
 
@@ -41,11 +36,11 @@ The system uses several independent software checks:
 1. The physical launcher requires `--confirm-hardware`.
 2. Both expected CAN interfaces must exist and be `UP`.
 3. Physical command output starts disabled.
-4. Commands use the official driver checks: hard joint range, official
-   single-command delta thresholds, and official time-based velocity limits.
-5. Operators can disable and resynchronize targets without exiting.
-6. Each position command uses the feedback already collected by the driver;
-   command cadence is reported once per second.
+4. Joint targets are constrained by model limits and a configurable margin.
+5. Per-command joint steps, acceleration, and gripper steps are limited.
+6. Operators can disable and resynchronize targets without exiting.
+7. Each position command uses the feedback already collected by the driver;
+   cadence and peak following error are reported once per second.
 
 These controls reduce common integration risks but do not replace a safety
 controller, physical emergency stop, guarded workspace, or a risk assessment.
@@ -65,8 +60,9 @@ controller, physical emergency stop, guarded workspace, or a risk assessment.
 
 ## Configuration
 
-`config/openarm_safe_raw_zero.yaml` is the active physical-control configuration
-used by the shared real launcher. It keeps this machine's zero offsets, gains,
-and J8 control mode while copying the official OpenArm position, delta, and
-velocity check values. Controller defaults are visible in
-`scripts/launch/run_vive_shared_mujoco_real.sh`.
+`config/openarm_safe_raw_zero.yaml` is the active physical-control configuration used
+by the shared real launcher. Controller defaults are visible in
+`scripts/launch/run_vive_shared_mujoco_real.sh`; changing them affects real
+motion and should
+be reviewed together with the offline safety tests and a low-speed hardware
+validation plan.

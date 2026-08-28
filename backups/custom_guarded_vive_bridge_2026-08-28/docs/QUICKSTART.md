@@ -94,12 +94,9 @@ Start the guarded physical controller:
 Physical output remains disabled at startup. Calibrate (`K`), capture a
 reference (`C` or trigger), compare the real and simulated pose, then use `E`
 only when the workspace is clear and the emergency stop is reachable.
-The launcher sends at 60 Hz and delegates motion checks to official
-`openarm-driver==0.3.0`. Its J1-J8 velocity profile is
-`[2, 2, 3.3, 3.3, 6.3, 6.3, 6.3, 20] rad/s`; there is no additional local
-speed/acceleration/soft-margin/collision/tracking-error filter. During the first
-small, one-arm movement, confirm that the reported active-side cadence stays
-close to 60 Hz.
+The guarded launcher uses finer 60 Hz joint commands while retaining an
+approximately 0.50 rad/s J1-J7 speed ceiling. During the first small, one-arm
+movement, confirm that the reported active-side cadence stays close to 60 Hz.
 
 ## 6. Stop safely
 

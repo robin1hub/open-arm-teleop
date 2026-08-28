@@ -311,18 +311,11 @@ def physical_to_model_position(
     if model_version == "v1":
         # V1 hardware reports gripper rotor angle (60 degrees full stroke);
         # MJCF finger joints are linear slides with a 44 mm full stroke.
-        direction = physical_gripper_direction(side)
+        direction = -1.0 if side == "right" else 1.0
         converted[7] = np.clip(
             direction * converted[7] * 0.044 / (math.pi / 3.0), 0.0, 0.044
         )
     return converted
-
-
-def physical_gripper_direction(side: str) -> float:
-    """Return the measured opening direction of this machine's V1 J8 motors."""
-    if side not in ("left", "right"):
-        raise ValueError(f"unknown arm side: {side}")
-    return -1.0
 
 
 def quat_error_deg(a: np.ndarray, b: np.ndarray) -> float:

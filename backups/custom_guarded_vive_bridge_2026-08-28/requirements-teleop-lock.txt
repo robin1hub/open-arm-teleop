@@ -10,6 +10,6 @@ qpsolvers==4.11.0
 daqp==0.7.2
 openvr==2.12.1401
 openarm-can==1.2.9
-openarm-driver==0.3.0
+openarm-driver==0.2.0
 openarm-mujoco==2.0.0
 openarm-control @ git+https://github.com/enactic/openarm_control.git@e25c0f3c7e0d60fbdb1000c25e689b0c014e2f54

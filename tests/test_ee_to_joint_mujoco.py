@@ -91,8 +91,8 @@ def main() -> int:
         raise RuntimeError("position error exceeds 5 mm")
     if max(right_orientation_error, left_orientation_error) > 1.0:
         raise RuntimeError("orientation error exceeds 1 degree")
-    if max_joint_step > 0.03:
-        raise RuntimeError("joint step exceeds physical-driver 0.03 rad limit")
+    if max_joint_step > 1.0:
+        raise RuntimeError("joint step exceeds the strictest official delta limit")
     print("SUCCESS: EE pose -> IK -> joints -> MuJoCo FK passed.")
     return 0
 

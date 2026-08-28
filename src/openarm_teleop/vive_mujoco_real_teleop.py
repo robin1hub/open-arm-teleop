@@ -1,87 +1,69 @@
 #!/usr/bin/env python3
-"""Guarded VIVE teleoperation for the physical OpenArm 1.0 bimanual robot."""
+"""Official-driver VIVE teleoperation for physical OpenArm 1.0."""
 
 from __future__ import annotations
 
 import argparse
+from collections import deque
 import pathlib
 import time
 
-import glfw
 import mujoco
 import numpy as np
 
 from .interactive_mujoco_ee_drag import (
-    limit_joint_command,
+    physical_gripper_direction,
     physical_to_model_position,
 )
 from .vive_mujoco_teleop import ViveSimulationApp
 
 
 class BimanualHardwareBridge:
-    """Explicitly enabled, rate-limited two-arm physical driver bridge."""
+    """Explicitly enabled bridge using only openarm-driver safety checks."""
 
     def __init__(
         self,
         config_path: pathlib.Path,
         command_hz: float,
-        max_step: float,
-        max_tracking_error: float,
-        joint_limit_margin: float = 0.05,
-        max_gripper_step: float | None = None,
-        max_joint_acceleration: float = 1.5,
     ) -> None:
         from openarm_driver import Config, SingleArmDriver
 
         config = Config(config_path)
+        if not hasattr(config, "get_joint_velocity_limits"):
+            raise RuntimeError(
+                "physical VIVE mode requires openarm-driver>=0.3.0"
+            )
+        velocity_limits = config.get_joint_velocity_limits()
+        if velocity_limits is None:
+            raise RuntimeError(
+                "physical config must define official joint_velocity_limits"
+            )
+        self.official_velocity_limits = np.asarray(
+            velocity_limits, dtype=np.float64
+        )
         self.drivers = {
             side: SingleArmDriver(f"{side}_arm", config)
             for side in ("left", "right")
         }
-        self.joint_limits = {
-            side: config.get_joint_limits(f"{side}_arm") for side in self.drivers
-        }
-        self.command_limits = {
-            side: limits.copy() for side, limits in self.joint_limits.items()
-        }
-        for limits in self.command_limits.values():
-            limits[:7, 0] += joint_limit_margin
-            limits[:7, 1] -= joint_limit_margin
-            if np.any(limits[:7, 0] >= limits[:7, 1]):
-                raise ValueError("joint-limit margin leaves an empty arm range")
-        self.joint_limit_margin = float(joint_limit_margin)
-        self.command_period = 1.0 / command_hz
-        self.max_step = max_step
-        self.max_joint_acceleration = float(max_joint_acceleration)
-        self.max_step_acceleration = (
-            self.max_joint_acceleration * self.command_period**2
-        )
-        self.max_gripper_step = (
-            max_step if max_gripper_step is None else float(max_gripper_step)
-        )
-        self.max_tracking_error = max_tracking_error
+        self.command_hz = float(command_hz)
+        self.command_period = 1.0 / self.command_hz
+        if self.official_velocity_limits.shape != (8,):
+            raise RuntimeError("official joint_velocity_limits must contain J1-J8")
         self.last_command_time = {"left": 0.0, "right": 0.0}
-        self.last_command_delta = {
-            "left": np.zeros(8, dtype=np.float64),
-            "right": np.zeros(8, dtype=np.float64),
+        self.next_command_time = {"left": 0.0, "right": 0.0}
+        self.command_intervals = {
+            "left": deque(maxlen=120),
+            "right": deque(maxlen=120),
         }
+        self.last_cadence_log = time.monotonic()
         self.armed = False
         try:
             positions = self.read_positions_now(stable=True)
             for side, position in positions.items():
-                self._check_limits(side, position)
                 self.drivers[side].last_command = position.copy()
         finally:
             for driver in self.drivers.values():
                 driver.openarm.disable_all()
-
-    def _check_limits(self, side: str, position: np.ndarray) -> None:
-        limits = self.joint_limits[side]
-        if np.any(position < limits[:, 0]) or np.any(position > limits[:, 1]):
-            bad = np.flatnonzero(
-                (position < limits[:, 0]) | (position > limits[:, 1])
-            ).tolist()
-            raise RuntimeError(f"{side} joint limits violated: {bad}")
 
     def read_positions_now(self, stable: bool = False) -> dict[str, np.ndarray]:
         count = 5 if stable else 1
@@ -109,15 +91,23 @@ class BimanualHardwareBridge:
         started: list[str] = []
         try:
             for side in ("left", "right"):
-                self._check_limits(side, positions[side])
                 self.drivers[side].last_command = positions[side].copy()
                 self.drivers[side].start()
                 started.append(side)
             self.armed = True
             self.last_command_time = {"left": 0.0, "right": 0.0}
-            for side in self.last_command_delta:
-                self.last_command_delta[side].fill(0.0)
-            print("[hardware] BOTH ARMS ENABLED at measured posture", flush=True)
+            self.next_command_time = {"left": 0.0, "right": 0.0}
+            for side in self.command_intervals:
+                self.command_intervals[side].clear()
+            self.last_cadence_log = time.monotonic()
+            limits = ",".join(
+                f"{value:.2f}" for value in self.official_velocity_limits
+            )
+            print(
+                "[hardware] BOTH ARMS ENABLED at measured posture; "
+                f"official J1-J8 velocity limits=[{limits}] rad/s",
+                flush=True,
+            )
         except Exception:
             for side in started:
                 self.drivers[side].stop()
@@ -134,69 +124,74 @@ class BimanualHardwareBridge:
         if was_armed:
             print("[hardware] BOTH ARMS DISABLED", flush=True)
 
-    def command_due(self, side: str) -> bool:
-        return (
-            time.monotonic() - self.last_command_time[side] >= self.command_period
+    def command_due(self, side: str, now: float | None = None) -> bool:
+        """Return whether the phase-locked command deadline has arrived."""
+
+        current = time.monotonic() if now is None else float(now)
+        return current >= self.next_command_time[side]
+
+    def _mark_command_sent(self, side: str, sent_at: float) -> None:
+        """Advance from the previous deadline instead of quantizing to UI frames."""
+
+        previous_time = self.last_command_time[side]
+        if previous_time > 0.0:
+            self.command_intervals[side].append(sent_at - previous_time)
+        self.last_command_time[side] = sent_at
+
+        deadline = self.next_command_time[side]
+        if deadline <= 0.0:
+            self.next_command_time[side] = sent_at + self.command_period
+            return
+        missed_periods = max(
+            1, int(np.floor((sent_at - deadline) / self.command_period)) + 1
         )
+        self.next_command_time[side] = deadline + missed_periods * self.command_period
 
-    def clamp_to_command_limits(
-        self, side: str, desired: np.ndarray
-    ) -> np.ndarray:
-        """Project a command inside the soft range before the hard checker."""
-
-        desired = np.asarray(desired, dtype=np.float64)
-        limits = self.command_limits[side]
-        return np.clip(desired, limits[:, 0], limits[:, 1])
-
-    def limit_command(
-        self, side: str, previous: np.ndarray, desired: np.ndarray
-    ) -> np.ndarray:
-        """Apply velocity and acceleration limits to the next joint command."""
-
-        per_joint_step = np.full(8, self.max_step, dtype=np.float64)
-        per_joint_step[7] = self.max_gripper_step
-        velocity_limited = limit_joint_command(previous, desired, per_joint_step)
-        requested_delta = velocity_limited - previous
-        prior_delta = self.last_command_delta[side]
-        arm_delta = np.clip(
-            requested_delta[:7],
-            prior_delta[:7] - self.max_step_acceleration,
-            prior_delta[:7] + self.max_step_acceleration,
+    def _maybe_log_cadence(self, now: float) -> None:
+        elapsed = now - self.last_cadence_log
+        if elapsed < 1.0:
+            return
+        details = []
+        for side in ("left", "right"):
+            intervals = self.command_intervals[side]
+            active = (
+                self.last_command_time[side] > 0.0
+                and now - self.last_command_time[side]
+                <= 2.0 * self.command_period
+            )
+            actual_hz = (
+                1.0 / float(np.mean(intervals)) if active and intervals else 0.0
+            )
+            details.append(f"{side}={actual_hz:.1f}Hz")
+        print(
+            f"[hardware] cadence target={self.command_hz:.1f}Hz "
+            + " ".join(details),
+            flush=True,
         )
-        reversing = arm_delta * requested_delta[:7] < 0.0
-        arm_delta[reversing] = 0.0
-        overshooting = np.abs(arm_delta) > np.abs(requested_delta[:7])
-        arm_delta[overshooting] = requested_delta[:7][overshooting]
-        result = previous.copy()
-        result[:7] += arm_delta
-        result[7] += requested_delta[7]
-        return result
+        self.last_cadence_log = now
 
-    def send_if_due(self, side: str, desired: np.ndarray) -> np.ndarray | None:
-        if not self.armed or not self.command_due(side):
+    def send_if_due(
+        self,
+        side: str,
+        desired: np.ndarray,
+    ) -> np.ndarray | None:
+        now = time.monotonic()
+        if not self.armed or not self.command_due(side, now):
             return None
         driver = self.drivers[side]
-        desired = self.clamp_to_command_limits(side, desired)
-        self._check_limits(side, desired)
-        previous = driver.last_command.copy()
-        limited = self.limit_command(side, previous, desired)
-        driver.send_position(limited)
-        measured = np.asarray(driver.fetch_position(refresh=True), dtype=np.float64)
+        driver.send_position(desired)
+        # SingleArmDriver.send_position() already receives a fresh motor state.
+        # A second refresh here doubled CAN transactions and made the UI-owned
+        # command cadence uneven.
+        latest_state = driver.latest_state
+        if not isinstance(latest_state, dict) or "qpos" not in latest_state:
+            raise RuntimeError(f"lost {side} feedback after position command")
+        measured = np.asarray(latest_state["qpos"], dtype=np.float64)
         if measured.shape != (8,) or not np.all(np.isfinite(measured)):
             raise RuntimeError(f"lost {side} feedback")
-        tracking_error = np.abs(measured - limited)
-        if float(np.max(tracking_error)) > self.max_tracking_error:
-            index = int(np.argmax(tracking_error))
-            joint = f"J{index + 1}" if index < 7 else "J8/gripper"
-            raise RuntimeError(
-                f"{side} {joint} tracking error "
-                f"{tracking_error[index]:.4f} rad exceeded "
-                f"{self.max_tracking_error:.4f}; "
-                f"command={limited[index]:.4f}, measured={measured[index]:.4f}"
-            )
-        driver.last_command = limited.copy()
-        self.last_command_delta[side] = limited - previous
-        self.last_command_time[side] = time.monotonic()
+        sent_at = time.monotonic()
+        self._mark_command_sent(side, sent_at)
+        self._maybe_log_cadence(sent_at)
         return measured
 
     def close(self) -> None:
@@ -209,11 +204,16 @@ class VivePhysicalApp(ViveSimulationApp):
     def __init__(self, bridge: BimanualHardwareBridge, **kwargs: object) -> None:
         super().__init__(**kwargs)
         self.hardware = bridge
+        self.target_position_step = np.inf
+        self.target_orientation_step = np.pi
+        self.max_ik_joint_step = np.inf
+        self.kin.set_max_joint_change_per_solve(np.inf)
+        self.gripper_step = 0.044
         self._sync_to_physical()
 
     @staticmethod
     def _physical_gripper(side: str, model_position: float) -> float:
-        direction = -1.0 if side == "right" else 1.0
+        direction = physical_gripper_direction(side)
         return direction * model_position * (np.pi / 3.0) / 0.044
 
     def _sync_to_physical(self) -> None:
@@ -271,10 +271,6 @@ class VivePhysicalApp(ViveSimulationApp):
             return
         right, left = self._drivers()
         desired_by_side = {"right": right.copy(), "left": left.copy()}
-        physical = {
-            side: driver.last_command.copy()
-            for side, driver in self.hardware.drivers.items()
-        }
         try:
             for side in ("left", "right"):
                 if not (
@@ -285,16 +281,7 @@ class VivePhysicalApp(ViveSimulationApp):
                 desired[7] = self._physical_gripper(
                     side, self.gripper_position[side]
                 )
-                if not self.hardware.command_due(side):
-                    continue
-                next_command = self.hardware.limit_command(
-                    side, physical[side], desired
-                )
-                self._validate_physical_path(
-                    side, next_command, physical=physical, verbose=False
-                )
                 self.hardware.send_if_due(side, desired)
-                physical[side] = next_command
         except Exception as error:
             self.hardware.disarm()
             print(f"[hardware] SAFETY STOP: {error}", flush=True)
@@ -324,25 +311,17 @@ def main() -> int:
         default=pathlib.Path(__file__).resolve().parents[2]
         / "config/openarm_safe_current.yaml",
     )
-    parser.add_argument("--command-hz", type=float, default=20.0)
-    parser.add_argument("--max-joint-step", type=float, default=0.002)
-    parser.add_argument("--max-tracking-error", type=float, default=0.15)
+    parser.add_argument("--command-hz", type=float, default=60.0)
     parser.add_argument("--scale", type=float, default=0.6)
     parser.add_argument("--max-offset", type=float, default=0.15)
     args = parser.parse_args()
     if not args.confirm_hardware:
         parser.error("physical mode requires --confirm-hardware")
-    if not 5.0 <= args.command_hz <= 50.0:
-        parser.error("--command-hz must be between 5 and 50")
-    if not 0.0005 <= args.max_joint_step <= 0.005:
-        parser.error("--max-joint-step must be between 0.0005 and 0.005 rad")
-    if not 0.05 <= args.max_tracking_error <= 0.3:
-        parser.error("--max-tracking-error must be between 0.05 and 0.3 rad")
+    if not 5.0 <= args.command_hz <= 100.0:
+        parser.error("--command-hz must be between 5 and 100")
     bridge = BimanualHardwareBridge(
-        args.config,
-        args.command_hz,
-        args.max_joint_step,
-        args.max_tracking_error,
+        config_path=args.config,
+        command_hz=args.command_hz,
     )
     VivePhysicalApp(
         bridge=bridge,

@@ -25,12 +25,18 @@ done
 echo "OpenArm 1.0 shared absolute REAL mode"
 echo "  right arm = can0; left arm = can1"
 echo "  default output = DISABLED; calibrate, then press E explicitly"
-echo "  command target = 60 Hz; motion checks and J1-J8 speeds = official openarm-driver 0.3.0"
+echo "  guarded command target = 60 Hz; J1-J7 limit = 0.0083 rad/cycle (~0.50 rad/s)"
 echo "  keep the physical emergency stop accessible"
 
 exec env PYTHONPATH="$project_dir/src${PYTHONPATH:+:$PYTHONPATH}" \
   .venv/bin/python -m openarm_teleop.vive_absolute_mujoco_real_teleop \
   --config config/openarm_safe_raw_zero.yaml \
   --mapping-mode shared \
+  --position-step-mm 9 \
+  --orientation-step-deg 3.5 \
   --command-hz 60 \
+  --max-joint-step 0.0083 \
+  --max-joint-acceleration 3.0 \
+  --max-gripper-step 0.001 \
+  --joint-limit-margin 0.04 \
   "$@"

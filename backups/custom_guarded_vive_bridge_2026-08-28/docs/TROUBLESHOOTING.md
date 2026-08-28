@@ -50,19 +50,19 @@ trajectory in simulation. During physical movement, inspect the once-per-second
 line that starts with:
 
 ```text
-[hardware] cadence target=60.0Hz left=...Hz right=...Hz
+[hardware] cadence target=60.0Hz left=...Hz/peak_err=... right=...Hz/peak_err=...
 ```
 
 An actively commanded arm should remain close to 60 Hz. A side that is not being
-commanded can report 0 Hz. If an active arm stays below 50 Hz, record the line:
-the UI/IK workload or CAN feedback is still missing deadlines. If cadence is
-healthy, compare observed motion against the official velocity profile in
-`config/openarm_safe_raw_zero.yaml`, then inspect mechanics, power, wiring,
-gains, and the affected joint.
+commanded can report 0 Hz. If an active arm stays below 50 Hz, record the line
+and stop before changing limits: the UI/IK/collision workload or CAN feedback is
+still missing deadlines. If cadence is healthy but peak error rises, inspect the
+mechanics, power, wiring, gains, and the affected joint instead of increasing
+the tracking-error threshold.
 
-The active bridge has no local per-command step, acceleration, soft-margin,
-collision-prediction, or tracking-error threshold to tune. Motion limiting is
-owned by official `openarm-driver==0.3.0`.
+Review command frequency, maximum joint step, and acceleration together;
+changing only one can create a new bottleneck. Do not increase limits during an
+unexplained mechanical or communication fault.
 
 ## Python environment errors
 

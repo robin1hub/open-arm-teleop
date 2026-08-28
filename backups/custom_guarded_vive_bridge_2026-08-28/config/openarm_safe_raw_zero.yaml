@@ -7,8 +7,8 @@ joint_limits:
   right_arm:
     - [-1.3, 2.0]
     - [-0.174533, 2.0]
-    - [-1.570796, 1.570796]
-    - [0.0, 2.443461]
+    - [-1.75, 1.75]
+    - [-0.02, 2.443461]
     - [-1.570796, 1.570796]
     - [-0.785398, 0.785398]
     - [-1.570796, 1.570796]
@@ -16,21 +16,18 @@ joint_limits:
   left_arm:
     - [-2.0, 1.396263]
     - [-2.0, 0.174533]
-    - [-1.570796, 1.570796]
-    - [0.0, 2.443461]
+    - [-1.75, 1.75]
+    - [-0.02, 2.443461]
     - [-1.570796, 1.570796]
     - [-0.785398, 0.785398]
     - [-1.570796, 1.570796]
-    - [-1.047198, 0.4]
+    - [-0.4, 1.047198]
 
 joint_offsets:
   right_arm: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
   left_arm: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
-joint_delta_position_limits: [1.0, 1.0, 1.0, 1.5, 1.5, 1.5, 1.5, 3.14]
-
-# Official openarm_driver openarm_cell command velocity profile [rad/s].
-joint_velocity_limits: [2.0, 2.0, 3.3, 3.3, 6.3, 6.3, 6.3, 20.0]
+joint_delta_position_limits: [0.03, 0.03, 0.03, 0.03, 0.03, 0.03, 0.03, 0.03]
 
 can_interface:
   right_arm: "can0"
@@ -41,10 +38,8 @@ motor_config:
   send_ids: [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]
   recv_ids: [0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18]
 
-# Both installed J8 motors open toward negative rotor position. POS_FORCE keeps
-# the worn rails moving without the sustained closing torque seen in MIT mode.
-gripper_posforce: true
-gripper_posforce_limits: [5.0, 0.7]
+gripper_posforce: false
+gripper_posforce_limits: [5.0, 0.5]
 
 control_gains:
   kps: [70.0, 70.0, 80.0, 150.0, 20.0, 20.0, 20.0, 20.0]

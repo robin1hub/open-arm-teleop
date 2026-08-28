@@ -93,7 +93,6 @@ class ViveAbsoluteSimulationApp(ViveSimulationApp):
         shoulder_width: float,
         shoulder_drop: float,
         mapping_mode: str,
-        collision_check_enabled: bool = True,
         **kwargs: object,
     ) -> None:
         super().__init__(**kwargs)
@@ -102,7 +101,6 @@ class ViveAbsoluteSimulationApp(ViveSimulationApp):
         self.shoulder_width = float(shoulder_width)
         self.shoulder_drop = float(shoulder_drop)
         self.mapping_mode = mapping_mode
-        self.collision_check_enabled = bool(collision_check_enabled)
         self.shared_translation = np.zeros(3, dtype=np.float64)
         self.render_models = openvr.VRRenderModels()
         self.controller_tip_transforms: dict[int, tuple[np.ndarray, np.ndarray]] = {}
@@ -941,7 +939,7 @@ class ViveAbsoluteSimulationApp(ViveSimulationApp):
             self.solve_once()
             self._apply_gripper_positions()
             reason = self.last_reject_reason if not self.reachable else ""
-            if not reason and self.collision_check_enabled:
+            if not reason:
                 reason = self._path_collision_reason(
                     qpos_before, self.data.qpos.copy()
                 )
